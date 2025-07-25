@@ -15,9 +15,21 @@ Below is a simple version of the model for performing a single run:
 
 ```python
 >>> import bitw0r1d *
->>> simulation(seed=1234,
-path='your/path/here/',
-printing=True,write=False,limit=10000,generations=10000,s_length=2,s_prob=None,t_length=2,t_prob=None,η=0.5,λ=0.5,initial_endowment=100,p_tradeoff=0.5)
+>>> simulation(
+      seed=1234,
+      path='your/path/here/',
+      printing=True,
+      write=False,
+      limit=10000,
+      generations=10000,
+      s_length=2,
+      s_prob=None,
+      t_length=2,
+      t_prob=None,
+      η=0.5,
+      λ=0.5,
+      initial_endowment=100,
+      p_tradeoff=0.5)
 ```
 
 The parameters correponds to the following:
