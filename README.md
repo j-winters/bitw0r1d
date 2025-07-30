@@ -9,7 +9,7 @@ The top-level folder structure is as follows:
 * `supplementary/`: Data, R code and write up (`supplementary.pdf`).
 
 ## Running the model
-The actual simulation runs reported in the paper were parallelized using the [multiprocessing](https://docs.python.org/3/library/multiprocessing.html) package. To run the multiprocessing version, go to the file `multi_bitw0r1d.py`.
+The actual simulation runs reported in the paper were parallelized using the [multiprocessing](https://docs.python.org/3/library/multiprocessing.html) package. To run the multiprocessing version, go to the file `multi.py`.
 
 Below is a simple version of the model for performing a single run:
 
