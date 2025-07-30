@@ -6,7 +6,7 @@ The top-level folder structure is as follows:
 * `analysis/`: Contains R code for producing all graphs and associated summary statistics.
 * `data/`:  All data generated for Winters & Charbonneau (2025) in `.csv` format.
 * `model/`: The python code for running bitw0r1d. Requires Python 3 with [NumPy](https://numpy.org/), [Pandas](https://pandas.pydata.org/) and [Polyleven](https://pypi.org/project/polyleven/) packages installed.
-* `supplementary/`: Data, R code and write up (`supplementary.pdf`).
+* `supplementary/`: Data, R code and write up (`supplementary_material.pdf`).
 
 ## Running the model
 The actual simulation runs reported in the paper were parallelized using the [multiprocessing](https://docs.python.org/3/library/multiprocessing.html) package. To run the multiprocessing version, go to the file `multi.py`.
