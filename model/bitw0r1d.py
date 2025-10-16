@@ -26,7 +26,7 @@ def string_generator(p:float,l:int) -> str:
 	"""
 	Generates bitstring of n-length using p (probability of 1) and l (length of string)
 	"""
-	return ''.join(np.random.choice(['0','1'],l,[p,1-p]))
+	return ''.join(np.random.choice(a=['0','1'],size=l,p=[p,1-p]))
 
 def evaluate(technologies:str,space:str) -> float:
 	"""
@@ -180,7 +180,7 @@ class Society:
 		If True: change technological system
 		If False: change search space
 		"""
-		return np.random.choice([True,False],iterations,p=[p,1-p])
+		return np.random.choice(a=[True,False],size=iterations,p=[p,1-p])
 
 	def ce_technologies(self, technologies:str, space:str, η:float) -> str:
 		"""
