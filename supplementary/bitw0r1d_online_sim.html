@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>bitw0r1d - Winters & Charbonneau (2026)</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // Simple icon components
+        const PlayIcon = () => (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+        );
+        
+        const PauseIcon = () => (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="6" y="4" width="4" height="16"></rect>
+            <rect x="14" y="4" width="4" height="16"></rect>
+          </svg>
+        );
+        
+        const RotateCcwIcon = () => (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+          </svg>
+        );
+
+        const BitstringEvolution = () => {
+          const [culturalSystem, setCulturalSystem] = useState('10110101');
+          const [searchSpace, setSearchSpace] = useState('11010110');
+          const [isRunning, setIsRunning] = useState(false);
+          const [eta, setEta] = useState(0.99);
+          const [lambda, setLambda] = useState(0.05);
+          const [pTradeoff, setPTradeoff] = useState(0.5);
+          const [initialEndowment, setInitialEndowment] = useState(100);
+          const [resourceStore, setResourceStore] = useState(100);
+          const [isDepleted, setIsDepleted] = useState(false);
+          const [generation, setGeneration] = useState(0);
+          const [history, setHistory] = useState([]);
+          const [speed, setSpeed] = useState(500);
+          const [seed, setSeed] = useState(12345);
+          const [initialCulturalComplexity, setInitialCulturalComplexity] = useState(8);
+          const [initialSearchComplexity, setInitialSearchComplexity] = useState(8);
+          const intervalRef = useRef(null);
+
+          // Initialize on mount
+          useEffect(() => {
+            const newTech = generateBitstring(initialCulturalComplexity, seed);
+            const newSpace = generateBitstring(initialSearchComplexity, seed + 1);
+            setCulturalSystem(newTech);
+            setSearchSpace(newSpace);
+          }, []);
+
+          // Seeded random number generator (simple LCG)
+          const seededRandom = (seed) => {
+            let state = seed;
+            return () => {
+              state = (state * 1664525 + 1013904223) % 4294967296;
+              return state / 4294967296;
+            };
+          };
+
+          // Generate random bitstring with seed
+          const generateBitstring = (length, seedValue) => {
+            const rng = seededRandom(seedValue);
+            const prob = rng();
+            let result = '';
+            for (let i = 0; i < length; i++) {
+              result += rng() < prob ? '1' : '0';
+            }
+            return result;
+          };
+
+          // Calculate normalized inverted Levenshtein distance (effectiveness)
+          const calculateEffectiveness = (tech, space) => {
+            const maxLen = Math.max(tech.length, space.length);
+            if (maxLen === 0) return 1;
+            
+            const levenshtein = (s1, s2) => {
+              const matrix = [];
+              for (let i = 0; i <= s2.length; i++) {
+                matrix[i] = [i];
+              }
+              for (let j = 0; j <= s1.length; j++) {
+                matrix[0][j] = j;
+              }
+              for (let i = 1; i <= s2.length; i++) {
+                for (let j = 1; j <= s1.length; j++) {
+                  if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                  } else {
+                    matrix[i][j] = Math.min(
+                      matrix[i - 1][j - 1] + 1,
+                      matrix[i][j - 1] + 1,
+                      matrix[i - 1][j] + 1
+                    );
+                  }
+                }
+              }
+              return matrix[s2.length][s1.length];
+            };
+            
+            const distance = levenshtein(tech, space);
+            return 1 - (distance / maxLen);
+          };
+
+          // Calculate resources (matching Python resource_function)
+          const calculateResources = (lengthSpace, effectiveness, lengthTech) => {
+            return (lengthSpace * effectiveness) - (lengthTech * (1 - effectiveness));
+          };
+
+          // Update resource store (matching Python update_resource_store)
+          const updateResourceStore = (netResources, currentStore) => {
+            if (netResources >= 1) {
+              return { availableResources: netResources, newStore: currentStore, depleted: false };
+            } else {
+              let deficit;
+              if (netResources >= 0) {
+                deficit = 1;
+              } else {
+                deficit = Math.abs(netResources);
+              }
+              
+              if (currentStore >= deficit) {
+                return { 
+                  availableResources: 1.0, 
+                  newStore: currentStore - deficit, 
+                  depleted: false 
+                };
+              } else {
+                return { 
+                  availableResources: currentStore, 
+                  newStore: 0, 
+                  depleted: true 
+                };
+              }
+            }
+          };
+
+          // Apply mutation: insertion, deletion, or substitution
+          const mutate = (bitstring) => {
+            if (bitstring.length === 0) {
+              return Math.random() < 0.5 ? '0' : '1';
+            }
+            
+            const mutationType = Math.random();
+            
+            if (mutationType < 1/3) {
+              // Substitution (flip)
+              const position = Math.floor(Math.random() * bitstring.length);
+              const newBit = bitstring[position] === '0' ? '1' : '0';
+              return bitstring.slice(0, position) + newBit + bitstring.slice(position + 1);
+            } else if (mutationType < 2/3) {
+              // Insertion
+              const position = Math.floor(Math.random() * (bitstring.length + 1));
+              const newBit = Math.random() < 0.5 ? '0' : '1';
+              return bitstring.slice(0, position) + newBit + bitstring.slice(position);
+            } else {
+              // Deletion
+              if (bitstring.length <= 1) return bitstring;
+              const position = Math.floor(Math.random() * bitstring.length);
+              return bitstring.slice(0, position) + bitstring.slice(position + 1);
+            }
+          };
+
+          // Cultural evolution of technologies (matching ce_technologies)
+          const evolveTechnologies = (tech, space, etaParam) => {
+            const candidate = mutate(tech);
+            const currentE = calculateEffectiveness(tech, space);
+            const candidateE = calculateEffectiveness(candidate, space);
+            
+            if (Math.random() < etaParam) {
+              if (candidateE > currentE) {
+                return candidate;
+              }
+              return tech;
+            } else {
+              return candidate;
+            }
+          };
+
+          // Cultural evolution of search spaces (matching ce_space)
+          const evolveSearchSpace = (space, tech, lambdaParam) => {
+            const candidate = mutate(space);
+            const currentE = calculateEffectiveness(tech, space);
+            const candidateE = calculateEffectiveness(tech, candidate);
+            
+            if (Math.random() < lambdaParam) {
+              if (candidateE > currentE) {
+                return candidate;
+              }
+              return space;
+            } else {
+              return candidate;
+            }
+          };
+
+          // Evolution step (matching the main simulation loop)
+          const evolve = () => {
+            if (isDepleted) {
+              setIsRunning(false);
+              return;
+            }
+
+            const currentEffectiveness = calculateEffectiveness(culturalSystem, searchSpace);
+            const netResources = calculateResources(
+              searchSpace.length,
+              currentEffectiveness,
+              culturalSystem.length
+            );
+            
+            const { availableResources, newStore, depleted } = updateResourceStore(netResources, resourceStore);
+            
+            if (depleted) {
+              setIsDepleted(true);
+              setResourceStore(newStore);
+              setIsRunning(false);
+              return;
+            }
+            
+            const iterations = availableResources >= 1 ? Math.round(availableResources) : 1;
+            
+            let newCC = culturalSystem;
+            let newSS = searchSpace;
+            
+            if (iterations > 0) {
+              for (let i = 0; i < iterations; i++) {
+                if (Math.random() < pTradeoff) {
+                  newCC = evolveTechnologies(newCC, newSS, eta);
+                } else {
+                  newSS = evolveSearchSpace(newSS, newCC, lambda);
+                }
+              }
+            }
+            
+            const newEffectiveness = calculateEffectiveness(newCC, newSS);
+            const newNetResources = calculateResources(newSS.length, newEffectiveness, newCC.length);
+            
+            setHistory(prev => [...prev, {
+              generation: generation + 1,
+              cc: newCC,
+              ss: newSS,
+              effectiveness: newEffectiveness,
+              netResources: newNetResources,
+              availableResources: availableResources,
+              resourceStore: newStore,
+              lengthCC: newCC.length,
+              lengthSS: newSS.length
+            }].slice(-100));
+            
+            setCulturalSystem(newCC);
+            setSearchSpace(newSS);
+            setResourceStore(newStore);
+            setGeneration(prev => prev + 1);
+          };
+
+          useEffect(() => {
+            if (isRunning) {
+              intervalRef.current = setInterval(evolve, speed);
+            } else {
+              if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+              }
+            }
+            return () => {
+              if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+              }
+            };
+          }, [isRunning, culturalSystem, searchSpace, eta, lambda, pTradeoff, resourceStore, isDepleted, generation, speed]);
+
+          const reset = () => {
+            setIsRunning(false);
+            const newTech = generateBitstring(initialCulturalComplexity, seed);
+            const newSpace = generateBitstring(initialSearchComplexity, seed + 1);
+            setCulturalSystem(newTech);
+            setSearchSpace(newSpace);
+            setResourceStore(initialEndowment);
+            setIsDepleted(false);
+            setGeneration(0);
+            setHistory([]);
+          };
+
+          const effectiveness = calculateEffectiveness(culturalSystem, searchSpace);
+          const netResources = calculateResources(searchSpace.length, effectiveness, culturalSystem.length);
+          const { availableResources } = updateResourceStore(netResources, resourceStore);
+
+          return (
+            <div className="w-full max-w-6xl mx-auto p-6 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg shadow-lg">
+              <h1 className="text-3xl font-bold mb-2 text-slate-800">bitw0r1d: A co-evolutionary model of cultural systems and search spaces</h1>
+              <div className="text-sm text-slate-700 mb-6 space-y-2">
+                <p>
+                  This is an online simulation of the bitw0r1d model presented in <a href="https://arxiv.org/abs/2508.04828">Winters & Charbonneau (2026)</a>.
+                  In bitw0r1d, we model the co-evolutionary relationship between <strong>cultural systems</strong> (the repetoire of techniques, artifacts, norms and knowledge available to a society)
+                  and <strong>search spaces</strong> (the needs, problems and goals faced by societies at a given point in time).
+                  In our paper, we were interested in how cultural systems and search spaces co-evolved with one another, especially with respect to the conditions in which this led to open-ended dynamics.
+                </p>
+                <p>
+                  <strong>How it works:</strong> Both cultural systems and search spaces are represented as bitstrings that can change via modifications (flipping a randomly selected bit to its opposite value), expansions (inserting a new random chosen bit), and 
+                  simplifications (where a randomly chosen bit is deleted). Changes can either decrease the match between cultural systems and search spaces (measured as "effectiveness").
+                  The challenge facing the dynamics is produce resources. Resources fund evolutionary changes to both cultural systems and search spaces.
+                  There are two ways to increase resources: (i) by improving the match (or fit) between cultural systems or search spaces, and (ii) to expand the search space (which serves as an upper-bound on the maximum obtainable resources).
+                  Societies start with an initial resource buffer and will collapse if resources run out. The simulation shows whether societies can sustain co-evolution and potentially achieve open-ended growth in complexity.
+                </p>
+                <p>
+                  <strong>Key parameters:</strong> <em>η (eta)</em> controls how much selection pressure acts on cultural systems 
+                  (0 = purely random changes, 1 = only accept improvements that increase the fit with the current search space). 
+                  <em>λ (lambda)</em> does the same for search spaces (0 = purely random changes, 1 = only accept improvements that increase the fit with the existing cultural system). 
+                  The <em>tradeoff (p)</em> determines how resources are split between changing cultural systems versus search spaces. 
+                  You can also set the initial complexity of cultural systems and search spaces as well as change the random seed before running.
+                </p>
+                <p>
+                  <strong>Things to try:</strong> Try setting the initial complexity for cultural systems and search spaces to ℓ=2. 
+                  Then, play around with different parameter values for η and λ as we did in the paper. This will help you develop an intuitive understanding of the model.
+                  Importantly, remember to try out the same parameter values with <em>different</em> random seeds. See if you can find parameter values and seeds that lead to open-ended dynamics... 
+                </p>
+                <p>
+                  <strong>Bonus:</strong> Finally, a unique feature of this online version is that you can adjust selection pressures during a run -- try starting with high stochasticity to build initial complexity, then gradually increasing selection strength to see if you can stabilise and sustain growth. 
+                  This real-time manipulation wasn't possible in the Python model, so please feel free to <a href="mailto:james.winters@brunel.ac.uk">send an mail</a> if you find anything interesting!
+                </p>
+                  </div>
+              
+              <div className="bg-white p-6 rounded-lg shadow mb-6">
+                <div className="flex gap-4 mb-6">
+                  <button
+                    onClick={() => setIsRunning(!isRunning)}
+                    disabled={isDepleted}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors font-semibold ${
+                      isDepleted 
+                        ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    {isRunning ? <PauseIcon /> : <PlayIcon />}
+                    {isRunning ? 'Pause' : isDepleted ? 'Depleted' : 'Run'}
+                  </button>
+                  <button
+                    onClick={reset}
+                    className="flex items-center gap-2 px-6 py-3 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors font-semibold"
+                  >
+                    <RotateCcwIcon />
+                    {generation === 0 ? 'Initialize' : 'Reset'}
+                  </button>
+                </div>
+
+                <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <h3 className="text-sm font-bold text-slate-700 mb-3">Initial Setup (reset to apply)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Random Seed: {seed}
+                      </label>
+                      <input
+                        type="number"
+                        value={seed}
+                        onChange={(e) => setSeed(parseInt(e.target.value) || 0)}
+                        disabled={generation > 0}
+                        className="w-full px-3 py-2 border border-slate-300 rounded"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Initial Cultural System Complexity: {initialCulturalComplexity}
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="20"
+                        step="1"
+                        value={initialCulturalComplexity}
+                        onChange={(e) => setInitialCulturalComplexity(parseInt(e.target.value))}
+                        disabled={generation > 0}
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Initial Search Space Complexity: {initialSearchComplexity}
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="20"
+                        step="1"
+                        value={initialSearchComplexity}
+                        onChange={(e) => setInitialSearchComplexity(parseInt(e.target.value))}
+                        disabled={generation > 0}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                  {generation > 0 && (
+                    <p className="text-xs text-amber-600 mt-2">Reset simulation to change initial parameters</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      η (Eta - Cultural System Selection): {eta.toFixed(2)}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={eta}
+                      onChange={(e) => setEta(parseFloat(e.target.value))}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-slate-600 mt-1">0 = random drift, 1 = strong selection on effectiveness</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      λ (Lambda - Space Selection): {lambda.toFixed(2)}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={lambda}
+                      onChange={(e) => setLambda(parseFloat(e.target.value))}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-slate-600 mt-1">0 = random drift, 1 = strong selection on effectiveness</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      p (Tradeoff): {pTradeoff.toFixed(2)}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={pTradeoff}
+                      onChange={(e) => setPTradeoff(parseFloat(e.target.value))}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-slate-600 mt-1">Probability of allocating resources to cultural systems (vs search spaces)</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Initial Endowment: {initialEndowment}
+                    </label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="500"
+                      step="10"
+                      value={initialEndowment}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        setInitialEndowment(val);
+                        setResourceStore(val);
+                      }}
+                      disabled={generation > 0}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-slate-600 mt-1">Starting resource store (reset to change)</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Speed (ms): {speed}
+                    </label>
+                    <input
+                      type="range"
+                      min="100"
+                      max="2000"
+                      step="100"
+                      value={speed}
+                      onChange={(e) => setSpeed(parseInt(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+
+                {isDepleted && (
+                  <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700">
+                    <strong>Resources Depleted!</strong> The society has collapsed at generation {generation}. Reset to continue.
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow mb-6">
+                <h2 className="text-xl font-bold mb-4 text-slate-800">Generation {generation}</h2>
+                
+                <div className="space-y-4">
+                  <div className="border-l-4 border-blue-500 pl-4">
+                    <div className="text-sm font-semibold text-slate-600 mb-1">Cultural System (ℓ={culturalSystem.length})</div>
+                    <div className="font-mono text-lg tracking-wider break-all bg-blue-50 p-3 rounded">
+                      {culturalSystem.split('').map((bit, idx) => (
+                        <span key={idx} className={bit === '1' ? 'text-blue-700 font-bold' : 'text-slate-400'}>
+                          {bit}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border-l-4 border-green-500 pl-4">
+                    <div className="text-sm font-semibold text-slate-600 mb-1">Search Space (ℓ={searchSpace.length})</div>
+                    <div className="font-mono text-lg tracking-wider break-all bg-green-50 p-3 rounded">
+                      {searchSpace.split('').map((bit, idx) => (
+                        <span key={idx} className={bit === '1' ? 'text-green-700 font-bold' : 'text-slate-400'}>
+                          {bit}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 mt-6">
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg">
+                    <div className="text-sm font-semibold text-slate-600">Effectiveness (E)</div>
+                    <div className="text-2xl font-bold text-purple-700">{effectiveness.toFixed(3)}</div>
+                    <div className="text-xs text-slate-500 mt-1">Inverted normalized Levenshtein distance</div>
+                  </div>
+                  <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg">
+                    <div className="text-sm font-semibold text-slate-600">Available Resources</div>
+                    <div className="text-2xl font-bold text-green-700">{availableResources.toFixed(2)}</div>
+                    <div className="text-xs text-slate-500 mt-1">{Math.round(availableResources)} iterations this generation</div>
+                  </div>
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg">
+                    <div className="text-sm font-semibold text-slate-600">Resource Store</div>
+                    <div className="text-2xl font-bold text-blue-700">{resourceStore.toFixed(2)}</div>
+                    <div className="text-xs text-slate-500 mt-1">Reserve buffer capacity</div>
+                  </div>
+                </div>
+              </div>
+
+              {history.length > 0 && (
+                <div className="bg-white p-6 rounded-lg shadow">
+                  <h2 className="text-xl font-bold mb-4 text-slate-800">Evolution History</h2>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-4">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-600 mb-2">Effectiveness</div>
+                      <div className="relative h-40 border border-slate-200 rounded bg-slate-50 p-2">
+                        <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <line x1="0" y1="100" x2="100" y2="100" stroke="#e5e7eb" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+                          <line x1="0" y1="50" x2="100" y2="50" stroke="#e5e7eb" strokeWidth="0.5" vectorEffect="non-scaling-stroke" strokeDasharray="2" />
+                          <line x1="0" y1="0" x2="100" y2="0" stroke="#e5e7eb" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+                          {history.map((h, i) => {
+                            if (i === 0) return null;
+                            const x1 = ((i - 1) / (history.length - 1)) * 100;
+                            const x2 = (i / (history.length - 1)) * 100;
+                            const y1 = (1 - history[i - 1].effectiveness) * 100;
+                            const y2 = (1 - h.effectiveness) * 100;
+                            return React.createElement('line', {
+                              key: i,
+                              x1: x1,
+                              y1: y1,
+                              x2: x2,
+                              y2: y2,
+                              stroke: "#9333ea",
+                              strokeWidth: "2",
+                              vectorEffect: "non-scaling-stroke"
+                            });
+                          })}
+                        </svg>
+                        <div className="absolute left-0 top-0 text-xs text-slate-500">1.0</div>
+                        <div className="absolute left-0 top-1/2 -mt-2 text-xs text-slate-500">0.5</div>
+                        <div className="absolute left-0 bottom-0 text-xs text-slate-500">0.0</div>
+                        <div className="absolute bottom-0 left-1/2 -ml-8 text-xs text-slate-500">Generation</div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-sm font-semibold text-slate-600 mb-2">Complexity</div>
+                      <div className="relative h-40 border border-slate-200 rounded bg-slate-50 p-2">
+                        <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <line x1="0" y1="100" x2="100" y2="100" stroke="#e5e7eb" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+                          <line x1="0" y1="50" x2="100" y2="50" stroke="#e5e7eb" strokeWidth="0.5" vectorEffect="non-scaling-stroke" strokeDasharray="2" />
+                          <line x1="0" y1="0" x2="100" y2="0" stroke="#e5e7eb" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+                          {history.map((h, i) => {
+                            if (i === 0) return null;
+                            const maxLen = Math.max(...history.map(h => Math.max(h.lengthCC, h.lengthSS)));
+                            const x1 = ((i - 1) / (history.length - 1)) * 100;
+                            const x2 = (i / (history.length - 1)) * 100;
+                            const y1CC = (1 - history[i - 1].lengthCC / maxLen) * 100;
+                            const y2CC = (1 - h.lengthCC / maxLen) * 100;
+                            const y1SS = (1 - history[i - 1].lengthSS / maxLen) * 100;
+                            const y2SS = (1 - h.lengthSS / maxLen) * 100;
+                            return React.createElement('g', { key: i },
+                              React.createElement('line', {
+                                x1: x1,
+                                y1: y1CC,
+                                x2: x2,
+                                y2: y2CC,
+                                stroke: "#2563eb",
+                                strokeWidth: "2",
+                                vectorEffect: "non-scaling-stroke"
+                              }),
+                              React.createElement('line', {
+                                x1: x1,
+                                y1: y1SS,
+                                x2: x2,
+                                y2: y2SS,
+                                stroke: "#16a34a",
+                                strokeWidth: "2",
+                                vectorEffect: "non-scaling-stroke"
+                              })
+                            );
+                          })}
+                        </svg>
+                        <div className="absolute left-0 top-0 text-xs text-slate-500">{Math.max(...history.map(h => Math.max(h.lengthCC, h.lengthSS)))}</div>
+                        <div className="absolute left-0 bottom-0 text-xs text-slate-500">0</div>
+                        <div className="absolute bottom-0 left-1/2 -ml-8 text-xs text-slate-500">Generation</div>
+                      </div>
+                      <div className="flex gap-4 mt-1 text-xs">
+                        <span className="text-blue-600">■ Cultural</span>
+                        <span className="text-green-600">■ Search</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-sm font-semibold text-slate-600 mb-2">Net Resources</div>
+                      <div className="relative h-40 border border-slate-200 rounded bg-slate-50 p-2">
+                        <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <line x1="0" y1="50" x2="100" y2="50" stroke="#e5e7eb" strokeWidth="0.5" vectorEffect="non-scaling-stroke" strokeDasharray="2" />
+                          <line x1="0" y1="100" x2="100" y2="100" stroke="#e5e7eb" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+                          <line x1="0" y1="0" x2="100" y2="0" stroke="#e5e7eb" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+                          {history.map((h, i) => {
+                            if (i === 0) return null;
+                            const maxAbs = Math.max(...history.map(h => Math.abs(h.netResources)), 1);
+                            const x1 = ((i - 1) / (history.length - 1)) * 100;
+                            const x2 = (i / (history.length - 1)) * 100;
+                            const y1 = 50 - (history[i - 1].netResources / maxAbs) * 45;
+                            const y2 = 50 - (h.netResources / maxAbs) * 45;
+                            return React.createElement('line', {
+                              key: i,
+                              x1: x1,
+                              y1: y1,
+                              x2: x2,
+                              y2: y2,
+                              stroke: h.netResources >= 0 ? "#16a34a" : "#dc2626",
+                              strokeWidth: "2",
+                              vectorEffect: "non-scaling-stroke"
+                            });
+                          })}
+                        </svg>
+                        <div className="absolute left-0 top-0 text-xs text-slate-500">{Math.max(...history.map(h => h.netResources)).toFixed(0)}</div>
+                        <div className="absolute left-0 top-1/2 -mt-2 text-xs text-slate-500">0</div>
+                        <div className="absolute left-0 bottom-0 text-xs text-slate-500">{Math.min(...history.map(h => h.netResources)).toFixed(0)}</div>
+                        <div className="absolute bottom-0 left-1/2 -ml-8 text-xs text-slate-500">Generation</div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-sm font-semibold text-slate-600 mb-2">Resource Store</div>
+                      <div className="relative h-40 border border-slate-200 rounded bg-slate-50 p-2">
+                        <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <line x1="0" y1="100" x2="100" y2="100" stroke="#e5e7eb" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+                          <line x1="0" y1="50" x2="100" y2="50" stroke="#e5e7eb" strokeWidth="0.5" vectorEffect="non-scaling-stroke" strokeDasharray="2" />
+                          <line x1="0" y1="0" x2="100" y2="0" stroke="#e5e7eb" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+                          {history.map((h, i) => {
+                            if (i === 0) return null;
+                            const maxStore = Math.max(...history.map(h => h.resourceStore), initialEndowment);
+                            const x1 = ((i - 1) / (history.length - 1)) * 100;
+                            const x2 = (i / (history.length - 1)) * 100;
+                            const y1 = (1 - history[i - 1].resourceStore / maxStore) * 100;
+                            const y2 = (1 - h.resourceStore / maxStore) * 100;
+                            return React.createElement('line', {
+                              key: i,
+                              x1: x1,
+                              y1: y1,
+                              x2: x2,
+                              y2: y2,
+                              stroke: "#2563eb",
+                              strokeWidth: "2",
+                              vectorEffect: "non-scaling-stroke"
+                            });
+                          })}
+                        </svg>
+                        <div className="absolute left-0 top-0 text-xs text-slate-500">{Math.max(...history.map(h => h.resourceStore), initialEndowment).toFixed(0)}</div>
+                        <div className="absolute left-0 bottom-0 text-xs text-slate-500">0</div>
+                        <div className="absolute bottom-0 left-1/2 -ml-8 text-xs text-slate-500">Generation</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(BitstringEvolution));
+    </script>
+</body>
+</html>
