@@ -60,8 +60,8 @@ terminal_data <- cc_counterfactual %>%
   slice_tail(n = 1) %>%  # Get the last row for each simulation
   ungroup() %>%
   mutate(
-    # Adjust generation count for runs that hit tech_complexity limit
-    generations_reached = if_else(tech_complexity >= 10000, 9999, generation)
+    # Adjust generation count for runs that hit culture_complexity limit
+    generations_reached = if_else(culture_complexity >= 10000, 9999, generation)
   )
 
 # Calculate the proportion reaching 9999 for each parameter combination in each scenario
@@ -75,7 +75,7 @@ proportion_9999 <- terminal_data %>%
 # Calculate summary statistics
 summary_stats <- terminal_data %>%
   # Reshape data to long format
-  pivot_longer(cols = c(effectiveness, tech_complexity, space_complexity, generations_reached),
+  pivot_longer(cols = c(effectiveness, culture_complexity, space_complexity, generations_reached),
                names_to = "variable", 
                values_to = "value") %>%
   # Group by eta, lambda, and variable
@@ -101,8 +101,8 @@ survival_summary <- cc_counterfactual %>%
   group_by(eta, lambda, seed, scenario) %>%
   mutate(scenario = as.numeric(gsub("start_", "", scenario))) %>%
   summarize(
-    # Check if tech_complexity ever reached 10000
-    reached_complexity_threshold = any(tech_complexity >= 10000),
+    # Check if culture_complexity ever reached 10000
+    reached_complexity_threshold = any(culture_complexity >= 10000),
     # Get the max generation actually reached
     actual_max_gen = max(generation),
     # Calculate effective survival time:
@@ -134,23 +134,23 @@ survival_summary %>%
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         strip.text = element_text(size = 10, face = "bold"))
 
-# Average complexity of technological systems
+# Average complexity of cultural systems
 heat_cc <- cc_counterfactual %>%
   group_by(seed, eta, lambda, scenario) %>%
   mutate(scenario = as.numeric(gsub("start_", "", scenario))) %>%
   slice_tail(n = 1) %>%
-  summarise(max_gen = max(generation),max_tech_complexity = tech_complexity,.groups = "drop") %>%
+  summarise(max_gen = max(generation),max_culture_complexity = culture_complexity,.groups = "drop") %>%
   group_by(eta, lambda, scenario) %>%
-  summarise(tech_complexity = mean(max_tech_complexity) )
+  summarise(culture_complexity = mean(max_culture_complexity) )
 
 # Heatplot of complexity by endowment scenarios
 heat_cc %>%
-  ggplot(aes(x = as.factor(eta), y = as.factor(lambda), fill = tech_complexity)) +
+  ggplot(aes(x = as.factor(eta), y = as.factor(lambda), fill = culture_complexity)) +
   geom_tile() +
   facet_wrap(~ scenario, ncol = 5,
              labeller = labeller(scenario = function(x) paste("Endowment:", x))) +
-  scale_fill_viridis_c(name = "Mean Tech\nComplexity", option = "plasma") +
-  labs(title = "Terminal Tech Complexity Across Endowment Scenarios",
+  scale_fill_viridis_c(name = "Mean Cultural\nComplexity", option = "plasma") +
+  labs(title = "Terminal Cultural Complexity Across Endowment Scenarios",
        x = "η", y = "λ") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
