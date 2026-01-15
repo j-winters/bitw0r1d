@@ -15,8 +15,8 @@ limit=10000
 generations=10000
 s_length=2
 s_prob=None
-t_length=2
-t_prob=None
+c_length=2
+c_prob=None
 η_param = [0.01,0.05,0.10,0.20,0.40,0.50,0.60,0.80,0.90,0.95,0.99]
 λ_param = [0.01,0.05,0.10,0.20,0.40,0.50,0.60,0.80,0.90,0.95,0.99]
 initial_endowment=100.0
@@ -29,7 +29,7 @@ if __name__ == '__main__':
 			seeds = seed_gen(1000)
 			print(seeds)
 			num_processes = mp.cpu_count()
-			task_args = [(seed,path,printing,write,limit,generations,s_length,s_prob,t_length,t_prob,η,λ,initial_endowment,p_tradeoff) for seed in seeds]
+			task_args = [(seed,path,printing,write,limit,generations,s_length,s_prob,c_length,c_prob,η,λ,initial_endowment,p_tradeoff) for seed in seeds]
 			pool = mp.Pool(processes=num_processes)
 			pool.starmap(simulation, task_args)
 			pool.close()
