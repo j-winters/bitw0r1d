@@ -7,6 +7,13 @@ library(moments)
 cc <- list.files(pattern = "*.csv") %>%
   map_df(~fread(.))
 
+# Rename columns tech_complexity and initial_tech to align with revised manuscript: culture_complexity and initial_culture
+cc <- cc %>%
+  rename(
+    culture_complexity = tech_complexity,
+    initial_culture = initial_tech
+  )
+
 # Get terminal states with all variables
 terminal_data <- cc %>%
   group_by(eta, lambda, seed) %>%
@@ -284,4 +291,5 @@ ggplot(df_com_eff,
         strip.text = element_text(size = 10, face = "bold"),
         strip.background = element_rect(fill = "lightgray"),
         strip.text.y = element_text(angle = 0))
+
 
