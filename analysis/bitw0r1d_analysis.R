@@ -13,8 +13,8 @@ terminal_data <- cc %>%
   slice_tail(n = 1) %>%  # Get the last row for each simulation
   ungroup() %>%
   mutate(
-    # Adjust generation count for runs that hit tech_complexity limit
-    generations_reached = if_else(tech_complexity >= 10000, 9999, generation)
+    # Adjust generation count for runs that hit culture_complexity limit
+    generations_reached = if_else(culture_complexity >= 10000, 9999, generation)
   )
 
 # Calculate number of runs that failed to reached generation 9999
@@ -31,7 +31,7 @@ proportion_9999 <- terminal_data %>%
 # Calculate summary statistics
 summary_stats <- terminal_data %>%
   # Reshape data to long format
-  pivot_longer(cols = c(effectiveness, tech_complexity, space_complexity, generations_reached),
+  pivot_longer(cols = c(effectiveness, culture_complexity, space_complexity, generations_reached),
                names_to = "variable", 
                values_to = "value") %>%
   # Group by eta, lambda, and variable
@@ -56,8 +56,8 @@ fwrite(summary_stats,"summaries.csv")
 survival_summary <- cc %>%
   group_by(eta, lambda, seed) %>%
   summarize(
-    # Check if tech_complexity ever reached 10000
-    reached_complexity_threshold = any(tech_complexity >= 10000),
+    # Check if culture_complexity ever reached 10000
+    reached_complexity_threshold = any(culture_complexity >= 10000),
     # Get the max generation actually reached
     actual_max_gen = max(generation),
     # Calculate effective survival time:
@@ -91,13 +91,13 @@ survival_summary %>%
 heat_cc <- cc %>%
   group_by(seed, eta, lambda) %>%
   slice_tail(n = 1) %>%
-  summarise(max_gen = max(generation),max_tech_complexity = tech_complexity,.groups = "drop") %>%
+  summarise(max_gen = max(generation),max_culture_complexity = culture_complexity,.groups = "drop") %>%
   group_by(eta, lambda) %>%
-  summarise(tech_complexity = mean(max_tech_complexity) )
+  summarise(culture_complexity = mean(max_culture_complexity) )
 
-# Heatmap for tech_complexity (Figure 2B in Winters & Charbonneau, 2025)
+# Heatmap for culture_complexity (Figure 2B in Winters & Charbonneau, 2025)
 heat_cc %>%
-  ggplot(., aes(x = as.factor(eta), y = as.factor(lambda), fill = tech_complexity )) +
+  ggplot(., aes(x = as.factor(eta), y = as.factor(lambda), fill = culture_complexity )) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
   geom_tile(color = "white",lwd = 1.5,linetype = 1) + theme_hc() +
   labs(x = "η", y = "λ") +
@@ -105,7 +105,7 @@ heat_cc %>%
   theme(axis.text=element_text(size=14), axis.title=element_text(size=16,face="bold"), legend.title = element_text(size = 14, face="bold"), legend.text = element_text(size = 12), legend.key.width = unit(4,"line") ) +
   scale_fill_viridis_c(direction = -1, option = "viridis")
 
-# Plot complexity of technological systems and search spaces
+# Plot complexity of Cultural systems and search spaces
 plot_complexity <- function(df, seed_param_list, color_option = "natural") {
   # Initialize empty data frame for combined data
   combined_data <- data.frame()
@@ -133,7 +133,7 @@ plot_complexity <- function(df, seed_param_list, color_option = "natural") {
     combination_id <- paste("Seed:", target_seed, "| eta:", target_eta, "| lambda:", target_lambda)
     subset_data$combination_id <- combination_id
     final_data$combination_id <- combination_id
-    final_data$distance <- abs(final_data$tech_complexity - final_data$space_complexity)
+    final_data$distance <- abs(final_data$culture_complexity - final_data$space_complexity)
     final_data$metrics_text <- paste("Eff:", round(final_data$effectiveness, 2), "| Res:", round(final_data$available_resources, 2))
     
     # Combine with overall data
@@ -156,23 +156,23 @@ plot_complexity <- function(df, seed_param_list, color_option = "natural") {
     base_colors <- RColorBrewer::brewer.pal(min(9, max(3, n_combinations)), "Set1")
   }
   
-  # Create tech/space complexity colour pairs with different lightness
+  # Create culture/space complexity colour pairs with different lightness
   color_palette <- c()
   for (i in 1:n_combinations) {
     # Convert base colour to HSL for manipulation
     base_color <- base_colors[i]
-    tech_color <- colorspace::darken(base_color, amount = 0.1)
+    culture_color <- colorspace::darken(base_color, amount = 0.1)
     space_color <- colorspace::lighten(base_color, amount = 0.2)
     
     combo_id <- unique(combined_data$combination_id)[i]
-    color_palette[paste(combo_id, "- Tech")] <- tech_color
+    color_palette[paste(combo_id, "- culture")] <- culture_color
     color_palette[paste(combo_id, "- Space")] <- space_color
   }
   
   # Create the main plot
   p <- ggplot(combined_data, aes(x = generation, group = combination_id)) +
-    # Plot technology complexity
-    geom_line(aes(y = tech_complexity, color = paste(combination_id, "- Tech")), 
+    # Plot culturenology complexity
+    geom_line(aes(y = culture_complexity, color = paste(combination_id, "- culture")), 
               linewidth = 1.2, alpha = 0.8) +
     # Plot space complexity
     geom_line(aes(y = space_complexity, color = paste(combination_id, "- Space")), 
@@ -180,7 +180,7 @@ plot_complexity <- function(df, seed_param_list, color_option = "natural") {
     
     # Add points at the final generation
     geom_point(data = final_data_all, 
-               aes(y = tech_complexity, color = paste(combination_id, "- Tech")), 
+               aes(y = culture_complexity, color = paste(combination_id, "- culture")), 
                size = 3, shape = 21, fill = "white", stroke = 2) +
     geom_point(data = final_data_all, 
                aes(y = space_complexity, color = paste(combination_id, "- Space")), 
@@ -191,7 +191,7 @@ plot_complexity <- function(df, seed_param_list, color_option = "natural") {
     # Customize the plot
     scale_color_manual(values = color_palette) +
     labs(
-      title = "Complexity of technological systems and search spaces for select seeds and parameter combinations",
+      title = "Complexity of cultural systems and search spaces for select seeds and parameter combinations",
       x = "Generation",
       y = "Complexity",
       color = "Seed/Parameters"
@@ -237,7 +237,7 @@ plot_complexity(cc, seed_param_combinations, color_option = "nature")
 # Figure 3 in winters & Charbonneau (2025)
 ggplot(subset(cc, eta %in% c(0.01, 0.99) &
                 lambda %in% c(0.01, 0.99)),
-       aes(x = generation, y = tech_complexity)) +
+       aes(x = generation, y = culture_complexity)) +
   geom_line(aes(colour = as.factor(seed),
                 group = interaction(as.factor(seed), as.factor(eta), as.factor(lambda))),
             linewidth = 0.5, alpha = 1.0) +
@@ -258,13 +258,13 @@ ggplot(subset(cc, eta %in% c(0.01, 0.99) &
 df_com_eff <- cc %>%
   filter(eta %in% c(0.40, 0.90) & lambda %in% c(0.40, 0.90)) %>%
   mutate(params = paste("η =", eta, ", λ =", lambda)) %>%
-  select(seed, params, generation, tech_complexity, effectiveness) %>%
-  pivot_longer(cols = c(tech_complexity, effectiveness),
+  select(seed, params, generation, culture_complexity, effectiveness) %>%
+  pivot_longer(cols = c(culture_complexity, effectiveness),
                names_to = "metric",
                values_to = "value") %>%
   mutate(metric = factor(metric,
-                         levels = c("tech_complexity", "effectiveness"),
-                         labels = c("Technological Complexity", "Effectiveness")))
+                         levels = c("culture_complexity", "effectiveness"),
+                         labels = c("Cultural Complexity", "Effectiveness")))
 
 # Figure 4 in winters & Charbonneau (2025)
 ggplot(df_com_eff,
@@ -284,3 +284,4 @@ ggplot(df_com_eff,
         strip.text = element_text(size = 10, face = "bold"),
         strip.background = element_rect(fill = "lightgray"),
         strip.text.y = element_text(angle = 0))
+
