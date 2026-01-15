@@ -9,9 +9,9 @@ The top-level folder structure is as follows:
 * `supplementary/`: Data, R code and write up (`supplementary_material.pdf`).
 
 ## Running the model
-The actual simulation runs reported in the paper were parallelized using the [multiprocessing](https://docs.python.org/3/library/multiprocessing.html) package. To run the multiprocessing version, go to the file `multi.py`.
+An online version of the simulation is now available here: [bitw0r1d online](https://j-winters.github.io/bitw0r1d/). The actual simulation runs reported in the paper were run in Python 3.1.1 and parallelized using the [multiprocessing](https://docs.python.org/3/library/multiprocessing.html) package. To run the multiprocessing version, go to the file `multi.py`.
 
-Below is a simple version of the model for performing a single run:
+Below is a simple version of the model for performing a single run in Python:
 
 ```python
 >>> import bitw0r1d *
@@ -24,8 +24,8 @@ Below is a simple version of the model for performing a single run:
       generations=10000,
       s_length=2,
       s_prob=None,
-      t_length=2,
-      t_prob=None,
+      c_length=2,
+      c_prob=None,
       η=0.5,
       λ=0.5,
       initial_endowment=100,
@@ -41,9 +41,9 @@ The parameters correponds to the following:
 * `generations`: Number of generations for a given run.
 * `s_length`: Initial length of search space.
 * `s_prob`: Initial probability of 0s and 1s for generating a search space.
-* `t_length`: Initial length of technological system.
-* `t_prob`: Initial probability of 0s and 1s for generating a technological system.
-* `η`: Controls probability for type of change to technological systems. Maximally stochastic (`η=0.0`), Maximally deterministic (`η=1.0`)
+* `c_length`: Initial length of cultural system.
+* `c_prob`: Initial probability of 0s and 1s for generating a cultural system.
+* `η`: Controls probability for type of change to cultural systems. Maximally stochastic (`η=0.0`), Maximally deterministic (`η=1.0`)
 * `λ`: Controls probability for type of change to search spaces. Maximally stochastic (`λ=0.0`), Maximally deterministic (`λ=1.0`)
 * `initial_endowment`: The initial resource endowment for a society.
-* `p_tradeoff`: Resource allocation tradeoff for making changes to technological systems or search spaces.
+* `p_tradeoff`: Resource allocation tradeoff for making changes to cultural systems or search spaces.
