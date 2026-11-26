@@ -1,10 +1,10 @@
 # bitw0r1d: Modelling the emergence of open-ended technological evolution
-This repository contains data and code from Winters & Charbonneau (2025). It includes the Python code used for running the model (bitw0r1d), the data generated for Winters & Charbonneau (2025), the R code used for producing the graphs and the supplementary material. 
+This repository contains data and code from [Winters & Charbonneau (2026)](https://doi.org/10.1098/rstb.2025.0255). It includes the Python code used for running the model (bitw0r1d), the data generated for Winters & Charbonneau (2026), the R code used for producing the graphs and the supplementary material. 
 
 The top-level folder structure is as follows:
 
 * `analysis/`: Contains R code for producing all graphs and associated summary statistics.
-* `data/`:  All data generated for Winters & Charbonneau (2025) in `.csv` format.
+* `data/`:  All data generated for Winters & Charbonneau (2026) in `.csv` format.
 * `model/`: The python code for running bitw0r1d. Requires Python 3 with [NumPy](https://numpy.org/), [Pandas](https://pandas.pydata.org/) and [Polyleven](https://pypi.org/project/polyleven/) packages installed.
 * `supplementary/`: Data, R code and write up (`supplementary_material.pdf`).
 
